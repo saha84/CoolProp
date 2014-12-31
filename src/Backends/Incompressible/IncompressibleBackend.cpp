@@ -112,6 +112,9 @@ void IncompressibleBackend::update(CoolProp::input_pairs input_pair, double valu
     if (!ValidNumber(_T)){ throw ValueError("T is not a valid number");}
     if (get_debug_level()>=50) std::cout << format("Incompressible backend: Update finished T=%f, p=%f, x=%s ",this->_T,this->_p,vec_to_string(_fractions).c_str()) << std::endl;
     fluid->checkTPX(_T,_p,_fractions[0]);
+    
+    // Report a successful update
+    report_successful_update();
 }
 
 /// Set the fractions

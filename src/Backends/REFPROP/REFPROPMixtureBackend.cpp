@@ -1204,6 +1204,9 @@ void REFPROPMixtureBackend::update(CoolProp::input_pairs input_pair, double valu
     _speed_sound = w;
     _tau = calc_T_critical()/_T;
     _delta = _rhomolar/calc_rhomolar_critical();
+    
+    // Report a successful update
+    report_successful_update();
 }
 long double REFPROPMixtureBackend::call_phixdll(long itau, long idel)
 {

@@ -36,8 +36,22 @@ Interpolator inherit AS implemented by TTSE BICUBIC
 
 */
 class AbstractState {
+private:
+    bool _is_updated;
+    
 protected:
 
+    /** 
+     * Subclasses of AbstractState MUST call this function after a successful update to set an 
+     * internal flag alerting the base class that the internal variables were updated properly
+     */
+    void report_successful_update(){ _is_updated = true; }
+    /**
+     * @brief Returns true if the state has been updated
+     * @return 
+     */
+    bool is_updated(){ return _is_updated; }
+    
     /// Some administrative variables
     long _fluid_type;
     phases _phase; ///< The key for the phase from CoolProp::phases enum
@@ -296,7 +310,7 @@ protected:
 
 public:
 
-    AbstractState(){};
+    AbstractState(){_is_updated = false;};
     virtual ~AbstractState(){};
 
     /// A factory function to return a pointer to a new-allocated instance of one of the backends.
@@ -430,15 +444,30 @@ public:
     double saturated_vapor_keyed_output(parameters key){return calc_saturated_vapor_keyed_output(key);};
     
     /// Return the temperature in K
-    double T(void)  {return _T;};
+    double T(void)  {
+        if (!is_updated()){throw ValueError("Cannot call T() prior to updating state;");}
+        return _T;
+    };
     /// Return the molar density in mol/m^3
-    double rhomolar(void){return _rhomolar;};
+    double rhomolar(void){
+        if (!is_updated()){throw ValueError("Cannot call rhomolar() prior to updating state;");}
+        return _rhomolar;
+    };
     /// Return the mass density in kg/m^3
-    double rhomass(void){return calc_rhomass();};
+    double rhomass(void){
+        if (!is_updated()){throw ValueError("Cannot call rhomass() prior to updating state;");}
+        return calc_rhomass();
+    };
     /// Return the pressure in Pa
-    double p(void)  {return _p;};
+    double p(void)  {
+        if (!is_updated()){throw ValueError("Cannot call p() prior to updating state;");}
+        return _p;
+    };
     /// Return the vapor quality (mol/mol); Q = 0 for saturated liquid
-    double Q(void)  {return _Q;};
+    double Q(void)  {
+        if (!is_updated()){throw ValueError("Cannot call Q() prior to updating state;");}
+        return _Q;
+    };
     /// Return the reciprocal of the reduced temperature (\f$\tau = T_c/T\f$)
     double tau(void);
     /// Return the reduced density (\f$\delta = \rho/\rho_c\f$)
@@ -456,29 +485,50 @@ public:
     /// Return the molar enthalpy in J/mol
     double hmolar(void);
     /// Return the mass enthalpy in J/kg
-    double hmass(void){return calc_hmass();};
+    double hmass(void){
+        if (!is_updated()){throw ValueError("Cannot call hmass() prior to updating state;");}
+        return calc_hmass();
+    };
     /// Return the molar entropy in J/mol/K
     double smolar(void);
     /// Return the molar entropy in J/kg/K
-    double smass(void){return calc_smass();};
+    double smass(void){
+        if (!is_updated()){throw ValueError("Cannot call smass() prior to updating state;");}
+        return calc_smass();
+    };
     /// Return the molar internal energy in J/mol
     double umolar(void);
     /// Return the mass internal energy in J/kg
-    double umass(void){return calc_umass();};
+    double umass(void){
+        if (!is_updated()){throw ValueError("Cannot call umass() prior to updating state;");}
+        return calc_umass();
+    };
     /// Return the molar constant pressure specific heat in J/mol/K
     double cpmolar(void);
     /// Return the mass constant pressure specific heat in J/kg/K
-    double cpmass(void){return calc_cpmass();};
+    double cpmass(void){
+        return calc_cpmass();
+        if (!is_updated()){throw ValueError("Cannot call cpmass() prior to updating state;");}
+    };
     /// Return the molar constant pressure specific heat for ideal gas part only in J/mol/K
     double cp0molar(void);
     /// Return the mass constant pressure specific heat for ideal gas part only in J/kg/K
-    double cp0mass(void){return calc_cp0mass();};
+    double cp0mass(void){
+        if (!is_updated()){throw ValueError("Cannot call cp0mass() prior to updating state;");}
+        return calc_cp0mass();
+    };
     /// Return the molar constant volume specific heat in J/mol/K
     double cvmolar(void);
     /// Return the mass constant volume specific heat in J/kg/K
-    double cvmass(void){return calc_cvmass();};
+    double cvmass(void){
+        if (!is_updated()){throw ValueError("Cannot call cvmass() prior to updating state;");}
+        return calc_cvmass();
+    };
     /// Return the Gibbs function in J/mol
-    double gibbsmolar(void){return calc_gibbsmolar();};
+    double gibbsmolar(void){
+        if (!is_updated()){throw ValueError("Cannot call gibbsmolar() prior to updating state;");}
+        return calc_gibbsmolar();
+    };
     /// Return the speed of sound in m/s
     double speed_sound(void);
     /// Return the isothermal compressibility \f$ \kappa = -\frac{1}{v}\left.\frac{\partial v}{\partial p}\right|_T=\frac{1}{\rho}\left.\frac{\partial \rho}{\partial p}\right|_T\f$  in 1/Pa
@@ -499,7 +549,10 @@ public:
      * 
      * \f[ \left(\frac{\partial A}{\partial B}\right)_C = \frac{\left(\frac{\partial A}{\partial \tau}\right)_\delta\left(\frac{\partial C}{\partial \delta}\right)_\tau-\left(\frac{\partial A}{\partial \delta}\right)_\tau\left(\frac{\partial C}{\partial \tau}\right)_\delta}{\left(\frac{\partial B}{\partial \tau}\right)_\delta\left(\frac{\partial C}{\partial \delta}\right)_\tau-\left(\frac{\partial B}{\partial \delta}\right)_\tau\left(\frac{\partial C}{\partial \tau}\right)_\delta} = \frac{N}{D}\f]
      */
-    long double first_partial_deriv(parameters Of, parameters Wrt, parameters Constant){return calc_first_partial_deriv(Of, Wrt, Constant);};
+    long double first_partial_deriv(parameters Of, parameters Wrt, parameters Constant){
+        if (!is_updated()){throw ValueError("Cannot call first_partial_deriv() prior to updating state;");}
+        return calc_first_partial_deriv(Of, Wrt, Constant);
+    };
     
     /** \brief The second partial derivative in homogeneous phases
      * 
@@ -524,7 +577,10 @@ public:
      * 
      * The terms \f$ N \f$ and \f$ D \f$ are the numerator and denominator from \ref CoolProp::AbstractState::first_partial_deriv respectively
      */
-    long double second_partial_deriv(parameters Of1, parameters Wrt1, parameters Constant1, parameters Of2, parameters Constant2){return calc_second_partial_deriv(Of1,Wrt1,Constant1,Of2,Constant2);};
+    long double second_partial_deriv(parameters Of1, parameters Wrt1, parameters Constant1, parameters Of2, parameters Constant2){
+        if (!is_updated()){throw ValueError("Cannot call second_partial_deriv() prior to updating state;");}
+        return calc_second_partial_deriv(Of1,Wrt1,Constant1,Of2,Constant2);
+    };
     
 	/** \brief The first partial derivative along the saturation curve
 	 * 
@@ -547,7 +603,10 @@ public:
 	 * @param Of1 The parameter that the derivative is taken of
 	 * @param Wrt1 The parameter that the derivative is taken with respect to
 	 */
-	long double first_saturation_deriv(parameters Of1, parameters Wrt1){return calc_first_saturation_deriv(Of1,Wrt1);};
+	long double first_saturation_deriv(parameters Of1, parameters Wrt1){
+        if (!is_updated()){throw ValueError("Cannot call first_saturation_deriv() prior to updating state;");}
+        return calc_first_saturation_deriv(Of1,Wrt1);
+    };
 	
 	/** \brief The second partial derivative along the saturation curve
 	 * 
@@ -567,7 +626,10 @@ public:
 	 * @param Of2 The parameter that the second derivative is taken of
 	 * @param Wrt2 The parameter that the second derivative is taken with respect to
 	 * */
-	long double second_saturation_deriv(parameters Of1, parameters Wrt1, parameters Of2, parameters Wrt2){return calc_second_saturation_deriv(Of1,Wrt1,Of2,Wrt2);};
+	long double second_saturation_deriv(parameters Of1, parameters Wrt1, parameters Of2, parameters Wrt2){
+        if (!is_updated()){throw ValueError("Cannot call second_saturation_deriv() prior to updating state;");}
+        return calc_second_saturation_deriv(Of1,Wrt1,Of2,Wrt2);
+    };
     
     // ----------------------------------------
     //    Phase envelope for mixtures
@@ -604,90 +666,113 @@ public:
     /// Return the surface tension in N/m
     double surface_tension(void);
     /// Return the Prandtl number (dimensionless)
-    double Prandtl(void){return cpmass()*viscosity()/conductivity();};
+    double Prandtl(void){
+        if (!is_updated()){throw ValueError("Cannot call Prandtl() prior to updating state;");}
+        return cpmass()*viscosity()/conductivity();
+    };
 
     // ----------------------------------------
     // Helmholtz energy and derivatives
     // ----------------------------------------
     /// Return the term \f$ \alpha^0 \f$
     long double alpha0(void){
+        if (!is_updated()){throw ValueError("Cannot call alpha0() prior to updating state;");}
         if (!_alpha0) _alpha0 = calc_alpha0();
         return _alpha0;
     };
     long double dalpha0_dDelta(void){
+        if (!is_updated()){throw ValueError("Cannot call dalpha0_dDelta() prior to updating state;");}
         if (!_dalpha0_dDelta) _dalpha0_dDelta = calc_dalpha0_dDelta();
         return _dalpha0_dDelta;
     };
     long double dalpha0_dTau(void){
+        if (!is_updated()){throw ValueError("Cannot call dalpha0_dTau() prior to updating state;");}
         if (!_dalpha0_dTau) _dalpha0_dTau = calc_dalpha0_dTau();
         return _dalpha0_dTau;
     };
     long double d2alpha0_dDelta2(void){
+        if (!is_updated()){throw ValueError("Cannot call d2alpha0_dDelta2() prior to updating state;");}
         if (!_d2alpha0_dDelta2) _d2alpha0_dDelta2 = calc_d2alpha0_dDelta2();
         return _d2alpha0_dDelta2;
     };
     long double d2alpha0_dDelta_dTau(void){
+        if (!is_updated()){throw ValueError("Cannot call d2alpha0_dDelta_dTau() prior to updating state;");}
         if (!_d2alpha0_dDelta_dTau) _d2alpha0_dDelta_dTau = calc_d2alpha0_dDelta_dTau();
         return _d2alpha0_dDelta_dTau;
     };
     long double d2alpha0_dTau2(void){
+        if (!is_updated()){throw ValueError("Cannot call d2alpha0_dTau2() prior to updating state;");}
         if (!_d2alpha0_dTau2) _d2alpha0_dTau2 = calc_d2alpha0_dTau2();
         return _d2alpha0_dTau2;
     };
     long double d3alpha0_dTau3(void){
+        if (!is_updated()){throw ValueError("Cannot call d3alpha0_dTau3() prior to updating state;");}
         if (!_d3alpha0_dTau3) _d3alpha0_dTau3 = calc_d3alpha0_dTau3();
         return _d3alpha0_dTau3;
     };
     long double d3alpha0_dDelta_dTau2(void){
+        if (!is_updated()){throw ValueError("Cannot call d3alpha0_dDelta_dTau2() prior to updating state;");}
         if (!_d3alpha0_dDelta_dTau2) _d3alpha0_dDelta_dTau2 = calc_d3alpha0_dDelta_dTau2();
         return _d3alpha0_dDelta_dTau2;
     };
     long double d3alpha0_dDelta2_dTau(void){
+        if (!is_updated()){throw ValueError("Cannot call d3alpha0_dDelta2_dTau() prior to updating state;");}
         if (!_d3alpha0_dDelta2_dTau) _d3alpha0_dDelta2_dTau = calc_d3alpha0_dDelta2_dTau();
         return _d3alpha0_dDelta2_dTau;
     };
     long double d3alpha0_dDelta3(void){
+        if (!is_updated()){throw ValueError("Cannot call d3alpha0_dDelta3() prior to updating state;");}
         if (!_d3alpha0_dDelta3) _d3alpha0_dDelta3 = calc_d3alpha0_dDelta3();
         return _d3alpha0_dDelta3;
     };
 
     long double alphar(void){
+        if (!is_updated()){throw ValueError("Cannot call alphar() prior to updating state;");}
         if (!_alphar) _alphar = calc_alphar();
         return _alphar;
     };
     long double dalphar_dDelta(void){
+        if (!is_updated()){throw ValueError("Cannot call dalphar_dDelta() prior to updating state;");}
         if (!_dalphar_dDelta) _dalphar_dDelta = calc_dalphar_dDelta();
         return _dalphar_dDelta;
     };
     long double dalphar_dTau(void){
+        if (!is_updated()){throw ValueError("Cannot call dalphar_dTau() prior to updating state;");}
         if (!_dalphar_dTau) _dalphar_dTau = calc_dalphar_dTau();
         return _dalphar_dTau;
     };
     long double d2alphar_dDelta2(void){
+        if (!is_updated()){throw ValueError("Cannot call d2alphar_dDelta2() prior to updating state;");}
         if (!_d2alphar_dDelta2) _d2alphar_dDelta2 = calc_d2alphar_dDelta2();
         return _d2alphar_dDelta2;
     };
     long double d2alphar_dDelta_dTau(void){
+        if (!is_updated()){throw ValueError("Cannot call d2alphar_dDelta_dTau() prior to updating state;");}
         if (!_d2alphar_dDelta_dTau) _d2alphar_dDelta_dTau = calc_d2alphar_dDelta_dTau();
         return _d2alphar_dDelta_dTau;
     };
     long double d2alphar_dTau2(void){
+        if (!is_updated()){throw ValueError("Cannot call d2alphar_dTau2() prior to updating state;");}
         if (!_d2alphar_dTau2) _d2alphar_dTau2 = calc_d2alphar_dTau2();
         return _d2alphar_dTau2;
     };
 	long double d3alphar_dDelta3(void){
+        if (!is_updated()){throw ValueError("Cannot call d3alphar_dDelta3() prior to updating state;");}
         if (!_d3alphar_dDelta3) _d3alphar_dDelta3 = calc_d3alphar_dDelta3();
         return _d3alphar_dDelta3;
     };
 	long double d3alphar_dDelta2_dTau(void){
+        if (!is_updated()){throw ValueError("Cannot call d3alphar_dDelta2_dTau() prior to updating state;");}
         if (!_d3alphar_dDelta2_dTau) _d3alphar_dDelta2_dTau = calc_d3alphar_dDelta2_dTau();
         return _d3alphar_dDelta2_dTau;
     };
 	long double d3alphar_dDelta_dTau2(void){
+        if (!is_updated()){throw ValueError("Cannot call d3alphar_dDelta_dTau2() prior to updating state;");}
         if (!_d3alphar_dDelta_dTau2) _d3alphar_dDelta_dTau2 = d3alphar_dDelta_dTau2();
         return _d3alphar_dDelta_dTau2;
     };
 	long double d3alphar_dTau3(void){
+        if (!is_updated()){throw ValueError("Cannot call d3alphar_dTau3() prior to updating state;");}
         if (!_d3alphar_dTau3) _d3alphar_dTau3 = calc_d3alphar_dTau3();
         return _d3alphar_dTau3;
     };

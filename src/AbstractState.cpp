@@ -216,6 +216,8 @@ double AbstractState::keyed_output(int key)
     {
         return trivial_keyed_output(key);
     }
+    // These inputs require the state to be updated.  Fail if the state has not yet been updated.
+    if (!is_updated()){throw ValueError("Cannot call output prior to updating state;");}
     switch (key)
     {
     case iQ:
@@ -292,10 +294,12 @@ double AbstractState::keyed_output(int key)
 }
 
 double AbstractState::tau(void){
+    if (!is_updated()){throw ValueError("Cannot call tau() prior to updating state;");}
     if (!_tau) _tau = calc_reciprocal_reduced_temperature();
     return _tau;
 }
 double AbstractState::delta(void){
+    if (!is_updated()){throw ValueError("Cannot call delta() prior to updating state;");}
     if (!_delta) _delta = calc_reduced_density();
     return _delta;
 }
@@ -336,37 +340,46 @@ double AbstractState::rhomass_reducing(void){
     return calc_rhomolar_reducing()*molar_mass();
 }
 double AbstractState::hmolar(void){
+    if (!is_updated()){throw ValueError("Cannot call hmolar() prior to updating state;");}
     if (!_hmolar) _hmolar = calc_hmolar();
     return _hmolar;
 }
 double AbstractState::smolar(void){
+    if (!is_updated()){throw ValueError("Cannot call smolar() prior to updating state;");}
     if (!_smolar) _smolar = calc_smolar();
     return _smolar;
 }
 double AbstractState::umolar(void){
+    if (!is_updated()){throw ValueError("Cannot call umolar() prior to updating state;");}
     if (!_umolar) _umolar = calc_umolar();
     return _umolar;
 }
 double AbstractState::cpmolar(void){
+    if (!is_updated()){throw ValueError("Cannot call cpmolar() prior to updating state;");}
     if (!_cpmolar) _cpmolar = calc_cpmolar();
     return _cpmolar;
 }
 double AbstractState::cp0molar(void){
+    if (!is_updated()){throw ValueError("Cannot call cp0molar() prior to updating state;");}
     return calc_cpmolar_idealgas();
 }
 double AbstractState::cvmolar(void){
+    if (!is_updated()){throw ValueError("Cannot call cvmolar() prior to updating state;");}
     if (!_cvmolar) _cvmolar = calc_cvmolar();
     return _cvmolar;
 }
 double AbstractState::speed_sound(void){
+    if (!is_updated()){throw ValueError("Cannot call speed_sound() prior to updating state;");}
     if (!_speed_sound) _speed_sound = calc_speed_sound();
     return _speed_sound;
 }
 double AbstractState::viscosity(void){
+    if (!is_updated()){throw ValueError("Cannot call viscosity() prior to updating state;");}
     if (!_viscosity) _viscosity = calc_viscosity();
     return _viscosity;
 }
 double AbstractState::conductivity(void){
+    if (!is_updated()){throw ValueError("Cannot call conductivity() prior to updating state;");}
     if (!_conductivity) _conductivity = calc_conductivity();
     return _conductivity;
 }
@@ -377,6 +390,7 @@ double AbstractState::saturation_ancillary(parameters param, int Q, parameters g
     return calc_saturation_ancillary(param, Q, given, value);
 }
 double AbstractState::surface_tension(void){
+    if (!is_updated()){throw ValueError("Cannot call surface_tension() prior to updating state;");}
     if (!_surface_tension) _surface_tension = calc_surface_tension();
     return _surface_tension;
 }
@@ -389,6 +403,7 @@ double AbstractState::gas_constant(void){
     return _gas_constant;
 }
 double AbstractState::fugacity_coefficient(int i){
+    if (!is_updated()){throw ValueError("Cannot call fugacity_coefficient() prior to updating state;");}
     // TODO: Cache the fug. coeff for each component
     return calc_fugacity_coefficient(i);
 }
@@ -397,9 +412,11 @@ void AbstractState::build_phase_envelope(const std::string &type)
     calc_phase_envelope(type);
 }
 double AbstractState::isothermal_compressibility(void){
+    if (!is_updated()){throw ValueError("Cannot call isothermal_compressibility() prior to updating state;");}
     return 1.0/_rhomolar*first_partial_deriv(iDmolar, iP, iT);
 }
 double AbstractState::isobaric_expansion_coefficient(void){
+    if (!is_updated()){throw ValueError("Cannot call isobaric_expansion_coefficient() prior to updating state;");}
     return -1.0/pow(_rhomolar,2)*first_partial_deriv(iDmolar, iT, iP);
 }
 double AbstractState::Bvirial(void){ return calc_Bvirial(); }
@@ -665,7 +682,25 @@ TEST_CASE("Check AbstractState","[AbstractState]")
     {
         CHECK_NOTHROW(shared_ptr<CoolProp::AbstractState> Water(CoolProp::AbstractState::factory("REFPROP", "Water")));
     }
-
+    SECTION("No update before rhomolar() = error")
+    {
+        shared_ptr<CoolProp::AbstractState> Water;
+        CHECK_NOTHROW(Water.reset(CoolProp::AbstractState::factory("HEOS", "Water")));
+        CHECK_THROWS(Water->rhomolar());
+    }
+    SECTION("No update before rhomass() = error")
+    {
+        shared_ptr<CoolProp::AbstractState> Water;
+        CHECK_NOTHROW(Water.reset(CoolProp::AbstractState::factory("HEOS", "Water")));
+        CHECK_THROWS(Water->rhomass());
+    }
+    SECTION("Update before rhomolar() = fine")
+    {
+        shared_ptr<CoolProp::AbstractState> Water;
+        CHECK_NOTHROW(Water.reset(CoolProp::AbstractState::factory("HEOS", "Water")));
+        CHECK_NOTHROW(Water->update(CoolProp::PQ_INPUTS,101325,0));
+        CHECK_NOTHROW(Water->rhomolar());
+    }
 }
 
 #endif

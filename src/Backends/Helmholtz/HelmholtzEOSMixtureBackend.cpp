@@ -883,6 +883,9 @@ void HelmholtzEOSMixtureBackend::update(CoolProp::input_pairs input_pair, double
     pre_update(input_pair, ld_value1, ld_value2);
     value1 = ld_value1; value2 = ld_value2;
 
+	// Report that the update was successful
+    report_successful_update();
+
     switch(input_pair)
     {
         case PT_INPUTS:
@@ -945,6 +948,8 @@ void HelmholtzEOSMixtureBackend::post_update()
     // Set the reduced variables
     _tau = _reducing.T/_T;
     _delta = _rhomolar/_reducing.rhomolar;
+    
+    
 }
 
 long double HelmholtzEOSMixtureBackend::calc_Bvirial()
