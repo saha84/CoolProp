@@ -9,14 +9,46 @@
 #define REFPROPMIXTUREBACKEND_H_
 
 #include "AbstractState.h"
-
 #include <vector>
 
-namespace CoolProp {
+#include "REFPROP_lib.h"
 
+// Include the header that provides the definition for shared library loading
+#if defined(__ISAPPLE__) || defined(__powerpc__) || defined(__ISLINUX__)
+    #include <dlfcn.h>
+#elif defined(__ISWINDOWS__)
+    #include <windows.h>
+#endif
+
+enum DLLNameManglingStyle{ NO_NAME_MANGLING = 0, LOWERCASE_NAME_MANGLING, LOWERCASE_AND_UNDERSCORE_NAME_MANGLING };
+
+
+    
+namespace CoolProp {
 
 class REFPROPMixtureBackend : public AbstractState  {
 protected:
+    
+    /* Define functions as pointers and initialise them to NULL
+    * Declare the functions for direct access
+    *
+    * Example: SETPATHdll_POINTER SETPATHdll;
+    *
+    * ***MAGIC WARNING**!! X Macros in use
+    * See http://stackoverflow.com/a/148610
+    * See http://stackoverflow.com/questions/147267/easy-way-to-use-variables-of-enum-types-as-string-in-c#202511
+    */
+    #define X(name)  name ## _POINTER name;
+     LIST_OF_REFPROP_FUNCTION_NAMES
+    #undef X
+
+    #if defined(__ISAPPLE__) || defined(__powerpc__) || defined(__ISLINUX__)
+        void *RefpropdllInstance;
+    #elif defined(__ISWINDOWS__)
+        HINSTANCE RefpropdllInstance;
+    #else
+        #pragma error
+    #endif
     std::size_t Ncomp;
     bool _mole_fractions_set;
     static bool _REFPROP_supported;
@@ -32,12 +64,16 @@ protected:
 	long double call_phi0dll(long itau, long idelta);
 	
 public:
-    REFPROPMixtureBackend(){};
+    REFPROPMixtureBackend(){RefpropdllInstance = NULL;};
 
     /// The instantiator
     /// @param fluid_names The vector of strings of the fluid components, without file ending
     REFPROPMixtureBackend(const std::vector<std::string>& fluid_names);
     virtual ~REFPROPMixtureBackend();
+    
+    double setFunctionPointers();
+    
+    void * getFunctionPointer(const char * name, DLLNameManglingStyle mangling_style = NO_NAME_MANGLING);
 	
 	std::vector<std::string> calc_fluid_names(){return fluid_names;};
 
@@ -90,6 +126,8 @@ public:
     const std::vector<long double> &get_mole_fractions(){return mole_fractions_long_double;};
 
     void calc_phase_envelope(const std::string &type);
+    
+    bool load_REFPROP();
 
     std::vector<long double> calc_mole_fractions_liquid(void){return std::vector<long double>(mole_fractions_liq.begin(), mole_fractions_liq.end());}
     std::vector<long double> calc_mole_fractions_vapor(void){return std::vector<long double>(mole_fractions_vap.begin(), mole_fractions_vap.end());}

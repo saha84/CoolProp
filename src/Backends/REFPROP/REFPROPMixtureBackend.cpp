@@ -26,28 +26,15 @@ surface tension                 N/m
 */
 
 #include "CoolPropTools.h"
-#if defined(__powerpc__)
-    void *RefpropdllInstance=NULL;
-    char refpropPath[] = "/opt/refprop";
-#elif defined(__ISLINUX__)
-    #include <dlfcn.h>
+#if defined(__powerpc__) || defined(__ISLINUX__) || defined(__ISAPPLE__)
     void *RefpropdllInstance=NULL;
     char refpropPath[] = "/opt/refprop";
 #elif defined(__ISWINDOWS__)
-    #include <windows.h>
-    HINSTANCE RefpropdllInstance=NULL;
     char refpropPath[] = "";
-#elif defined(__ISAPPLE__)
-    #include <dlfcn.h>
-    void *RefpropdllInstance=NULL;
-    char refpropPath[] = "/opt/refprop";
 #else
     #pragma error
 #endif
 
-enum DLLNameManglingStyle{ NO_NAME_MANGLING = 0, LOWERCASE_NAME_MANGLING, LOWERCASE_AND_UNDERSCORE_NAME_MANGLING };
-
-#include "REFPROP_lib.h"
 #include "REFPROPMixtureBackend.h"
 #include "Exceptions.h"
 #include "Configuration.h"
@@ -97,45 +84,66 @@ std::string endings[number_of_endings] = {"", ".FLD", ".fld", ".PPF", ".ppf"};
 static char rel_path_HMC_BNC[] = "HMX.BNC";
 static char default_reference_state[] = "DEF";
 
-/* Define functions as pointers and initialise them to NULL
-* Declare the functions for direct access
-*
-* Example: SETPATHdll_POINTER SETPATHdll;
-*
-* ***MAGIC WARNING**!! X Macros in use
-* See http://stackoverflow.com/a/148610
-* See http://stackoverflow.com/questions/147267/easy-way-to-use-variables-of-enum-types-as-string-in-c#202511
-*/
-#define X(name)  name ## _POINTER name;
- LIST_OF_REFPROP_FUNCTION_NAMES
-#undef X
-
-void *getFunctionPointer(const char * name, DLLNameManglingStyle mangling_style = NO_NAME_MANGLING)
+std::string get_REFPROP_fluid_path()
 {
-    std::string function_name;
-    switch(mangling_style){
-        case NO_NAME_MANGLING:
-            function_name = name; break;
-        case LOWERCASE_NAME_MANGLING:
-            function_name = lower(name); break;
-        case LOWERCASE_AND_UNDERSCORE_NAME_MANGLING:
-            function_name = lower(name) + "_"; break;
-    }
+    std::string rpPath = refpropPath;
+    // Allow the user to specify an alternative REFPROP path by configuration value
+    std::string alt_refprop_path = CoolProp::get_config_string(ALTERNATIVE_REFPROP_PATH);
+    if (!alt_refprop_path.empty()){ rpPath = alt_refprop_path; }
     #if defined(__ISWINDOWS__)
-        return (void *) GetProcAddress(RefpropdllInstance, function_name.c_str());
+        return rpPath;
     #elif defined(__ISLINUX__)
-        return dlsym(RefpropdllInstance, function_name.c_str());
+        return rpPath + std::string("/fluids/");
     #elif defined(__ISAPPLE__)
-        return dlsym(RefpropdllInstance, function_name.c_str());
+        return rpPath + std::string("/fluids/");
     #else
         throw CoolProp::NotImplementedError("This function should not be called.");
-        return NULL;
+        return rpPath;
     #endif
+}
+
+namespace CoolProp {
+
+REFPROPMixtureBackend::REFPROPMixtureBackend(const std::vector<std::string>& fluid_names) {
+    // Do the REFPROP instantiation for this fluid
+    _mole_fractions_set = false;
+
+    // Try to add this fluid to REFPROP - might want to think about making array of
+    // components and setting mole fractions if they change a lot.
+    this->set_REFPROP_fluids(fluid_names);
+    
+    // Init REFPROP dll pointer to NULL
+    this->RefpropdllInstance = NULL;
+}
+
+REFPROPMixtureBackend::~REFPROPMixtureBackend() {
+    // TODO: Remove this automatic unloading as soon as the bugs are fixed
+    if (RefpropdllInstance!=NULL) {
+        // Unload it
+        #if defined(__ISWINDOWS__)
+            FreeLibrary(RefpropdllInstance);
+            //delete RefpropdllInstance;
+            RefpropdllInstance = NULL;
+        #elif defined(__ISLINUX__)
+            dlclose (RefpropdllInstance);
+            //delete RefpropdllInstance;
+            RefpropdllInstance = NULL;
+        #elif defined(__ISAPPLE__)
+            dlclose (RefpropdllInstance);
+            //delete RefpropdllInstance;
+            RefpropdllInstance = NULL;
+        #else
+            throw CoolProp::NotImplementedError("We should not reach this point.");
+            //delete RefpropdllInstance;
+            RefpropdllInstance = NULL;
+        #endif
+        LoadedREFPROPRef = "";
+    }
 }
 
 //Moved pointer handling to a function, helps to maintain
 //an overview and structures OS dependent parts
-double setFunctionPointers()
+double REFPROPMixtureBackend::setFunctionPointers()
 {
     if (RefpropdllInstance==NULL)
     {
@@ -181,24 +189,29 @@ double setFunctionPointers()
     return COOLPROP_OK;
 }
 
-std::string get_REFPROP_fluid_path()
+void * REFPROPMixtureBackend::getFunctionPointer(const char * name, DLLNameManglingStyle mangling_style)
 {
-    std::string rpPath = refpropPath;
-    // Allow the user to specify an alternative REFPROP path by configuration value
-    std::string alt_refprop_path = CoolProp::get_config_string(ALTERNATIVE_REFPROP_PATH);
-    if (!alt_refprop_path.empty()){ rpPath = alt_refprop_path; }
+    std::string function_name;
+    switch(mangling_style){
+        case NO_NAME_MANGLING:
+            function_name = name; break;
+        case LOWERCASE_NAME_MANGLING:
+            function_name = lower(name); break;
+        case LOWERCASE_AND_UNDERSCORE_NAME_MANGLING:
+            function_name = lower(name) + "_"; break;
+    }
     #if defined(__ISWINDOWS__)
-        return rpPath;
+        return (void *) GetProcAddress(RefpropdllInstance, function_name.c_str());
     #elif defined(__ISLINUX__)
-        return rpPath + std::string("/fluids/");
+        return dlsym(RefpropdllInstance, function_name.c_str());
     #elif defined(__ISAPPLE__)
-        return rpPath + std::string("/fluids/");
+        return dlsym(RefpropdllInstance, function_name.c_str());
     #else
         throw CoolProp::NotImplementedError("This function should not be called.");
-        return rpPath;
     #endif
 }
-bool load_REFPROP()
+
+bool REFPROPMixtureBackend::load_REFPROP()
 {
     // If REFPROP is not loaded
     if (RefpropdllInstance==NULL)
@@ -250,6 +263,9 @@ bool load_REFPROP()
             #endif
             return false;
         }
+        else{
+            if (CoolProp::get_debug_level()>0){std::cout << format("REFPROP loaded at memory location %d", RefpropdllInstance) << std::endl;}
+        }
 
         if (setFunctionPointers()!=COOLPROP_OK)
         {
@@ -265,43 +281,6 @@ bool load_REFPROP()
     return true;
 }
 
-namespace CoolProp {
-
-REFPROPMixtureBackend::REFPROPMixtureBackend(const std::vector<std::string>& fluid_names) {
-    // Do the REFPROP instantiation for this fluid
-    _mole_fractions_set = false;
-
-    // Try to add this fluid to REFPROP - might want to think about making array of
-    // components and setting mole fractions if they change a lot.
-    this->set_REFPROP_fluids(fluid_names);
-
-}
-
-REFPROPMixtureBackend::~REFPROPMixtureBackend() {
-    // TODO: Remove this automatic unloading as soon as the bugs are fixed
-    if (RefpropdllInstance!=NULL) {
-        // Unload it
-        #if defined(__ISWINDOWS__)
-            FreeLibrary(RefpropdllInstance);
-            //delete RefpropdllInstance;
-            RefpropdllInstance = NULL;
-        #elif defined(__ISLINUX__)
-            dlclose (RefpropdllInstance);
-            //delete RefpropdllInstance;
-            RefpropdllInstance = NULL;
-        #elif defined(__ISAPPLE__)
-            dlclose (RefpropdllInstance);
-            //delete RefpropdllInstance;
-            RefpropdllInstance = NULL;
-        #else
-            throw CoolProp::NotImplementedError("We should not reach this point.");
-            //delete RefpropdllInstance;
-            RefpropdllInstance = NULL;
-        #endif
-        LoadedREFPROPRef = "";
-    }
-}
-
 bool REFPROPMixtureBackend::_REFPROP_supported = true; // initialise with true
 bool REFPROPMixtureBackend::REFPROP_supported () {
     /*
@@ -313,7 +292,6 @@ bool REFPROPMixtureBackend::REFPROP_supported () {
 
     // Abort check if Refprop has been loaded.
     if (RefpropdllInstance!=NULL) return true;
-
 
     // Store result of previous check.
     if (_REFPROP_supported) {
