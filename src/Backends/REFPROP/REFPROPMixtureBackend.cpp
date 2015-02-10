@@ -237,9 +237,9 @@ bool REFPROPMixtureBackend::load_REFPROP()
             }
 
         #elif defined(__ISLINUX__)
-            RefpropdllInstance = dlopen ("librefprop.so", RTLD_NOW);
+            RefpropdllInstance = dlmopen (LM_ID_NEWLM, "librefprop.so", RTLD_NOW);
         #elif defined(__ISAPPLE__)
-            RefpropdllInstance = dlopen ("librefprop.dylib", RTLD_NOW);
+            RefpropdllInstance = dlmopen (LM_ID_NEWLM, "librefprop.dylib", RTLD_NOW);
         #else
             throw CoolProp::NotImplementedError("We should not reach this point.");
             RefpropdllInstance = NULL;
