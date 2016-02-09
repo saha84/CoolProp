@@ -32,23 +32,25 @@ The ``-1`` is to ensure that all lines are not echoed (unelated question: why is
 
 If you always use CoolProp, you might find it convenient to have the shared library load automatically when you start Scilab. To do that, just rename the 'sample.sce' file to 'scilab.ini' and put it in the scilab home directory which can be found by executing 'SCIHOME' in the scilab console window, the result will be something like that:
 
-For Linux:
+For Linux::
 
 -->SCIHOME
  SCIHOME  =
  
  /home/username/.Scilab/scilab-5.5.2
 
-For Windows:
+For Windows::
 
 -->SCIHOME
  SCIHOME  =
  
- C:\Users\username\AppData\Roaming\Scilab\scilab-5.5.2
+ C:\\Users\\username\\AppData\\Roaming\\Scilab\\scilab-5.5.2
 
 .. note:: 
 
     It is possible that on linux, you might need to add the path to the directory containing ``libCoolProp.so`` to the ``LD_LIBRARY_PATH`` environmental variable.  At the terminal, or in your ~/.bash_profile file, add: ``export LD_LIBRARY_PATH=/path/to/directory``
+    
+    It is also possible to put the CoolProp shared library in '/usr/lib/scilab' for linux or in 'C:\\windows' for Windows, so you don't need to specify the path in the 'scilab.ini' file.
 
 Calling through PIMS
 ====================
